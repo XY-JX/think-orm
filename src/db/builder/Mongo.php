@@ -568,7 +568,7 @@ class Mongo
     {
         $options = $query->getOptions();
 
-        [$aggregate, $groupBy] = $extra;
+        [$aggregate, $groupBy ,$project] = $extra;
 
         $groups = ['_id' => []];
 
@@ -577,13 +577,22 @@ class Mongo
         }
 
         foreach ($aggregate as $fun => $field) {
-            $groups[$field . '_' . $fun] = ['$' . $fun => '$' . $field];
+          //  $groups[$field . '_' . $fun] = ['$' . $fun => '$' . $field];
+            if(is_int($field[1])){
+                $groups[$fun] = ['$' . $field[0] =>$field[1]];  //为了支持 计数等特殊需要
+            }else{
+                $groups[$fun] = ['$' . $field[0] => '$' . $field[1]];
+            }
         }
 
-        $pipeline = [
-            ['$match' => (object) $this->parseWhere($query, $options['where'])],
-            ['$group' => $groups],
-        ];
+//        $pipeline = [
+//            ['$match' => (object) $this->parseWhere($query, $options['where'])],
+//            ['$group' => $groups],
+//        ];
+        $pipeline = [['$match' => (object)$this->parseWhere($query, $options['where'])]];
+        if($project)
+            $pipeline[] = ['$project' => $project];
+        $pipeline[] = ['$group' => $groups];
 
         $cmd = [
             'aggregate'    => $options['table'],
@@ -599,11 +608,81 @@ class Mongo
         }
 
         $command = new Command($cmd);
-        $this->log('group', $cmd);
+        $this->log('aggregate', $cmd);
 
         return $command;
     }
+    /**
+     * 多聚合查询命令 操作 xyTODO
+     *
+     * @param Query $query 查询对象
+     * @param array $extra 指令和字段
+     * @return Command
+     */
+    public function aggregateSelect(Query $query, $extra): Command
+    {
 
+        $options = $query->getOptions();
+
+        if(isset($options['projection'])){
+            $unwind = key($options['projection']);
+        }else{
+            throw new Exception('A field() parameter is required before calling the aggregateSelect method');
+        }
+
+        $limit = intval($options['skip'][1] ? $options['skip'][1] : ( $options['limit'] ? $options['limit'] : 10 ));
+
+        $skip = intval($options['skip'][1] ? (($options['skip'][0]-1) * $limit) : ( $options['limit'] ? $options['skip'] : 0 ));
+
+        [$match] = $extra;
+
+        $pipeline=[['$match'=>(object)$this->parseWhere($query, $options['where'])]];
+
+        $pipeline[]=['$project'=>[$unwind=>1,'_id'=>0]];
+
+        $pipeline[]['$unwind']='$'.$unwind;
+
+        if($match){//分组后额外的条件
+            if(count($match)==count($match,1)){
+                $condition = isset($match[2])?[$match[1],$match[2]]:$match[1];
+                $filter['$and'][] = $this->parseWhereItem($query, $match[0],$condition);
+            }else{
+                foreach ($match as $value){
+                    $condition = isset($value[2])?[$value[1],$value[2]]:$value[1];
+                    $filter['$and'][] = $this->parseWhereItem($query, $value[0],$condition);
+                }
+            }
+            $pipeline[]=['$match'=>$filter];
+        }
+
+        if(isset($options['sort']))
+            $pipeline[]=['$sort'=>$options['sort']];
+
+        $pipeline[]=['$skip'=>$skip];
+
+        $pipeline[]=['$limit'=>$limit];
+
+        $pipeline[]=['$group'=>['_id'=>0,'data'=>['$push'=>'$'.$unwind]]];
+
+        $cmd = [
+            'aggregate' => $options['table'],
+            'allowDiskUse' => true,
+            'pipeline' => $pipeline,
+            'cursor' => new \stdClass,
+        ];
+
+        foreach (['explain', 'collation', 'bypassDocumentValidation', 'readConcern'] as $option) {
+            if (isset($options[$option])) {
+                $cmd[$option] = $options[$option];
+            }
+        }
+
+        $command = new Command($cmd);
+
+        $this->log('aggregate', $cmd);
+
+        return $command;
+    }
     /**
      * 生成distinct命令
      * @access public

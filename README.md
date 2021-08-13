@@ -58,7 +58,6 @@ ad3172161349767e0d8229585b1a4a55c31821a4
 //       ->where('list.cd','2021-06-01 15:18:48')
 //       ->where('list.id',579)
 
-       /*->where('list.id','$elemMatch'=>['id'=>579,'cd'=>'2021-06-01 14:18:48'])*/
             ->save(['list.$.name'=>'就打架大家看看']);
 
         print_r($cs);
@@ -95,7 +94,13 @@ ad3172161349767e0d8229585b1a4a55c31821a4
 
 ~~~
 
+##报错修复
+~~~
+where express error:elemMatch
+请修改 src/buiider/Mongo.php 30 行 加入   'elemMatch'=>'elemMatch'
+protected $exp = ['<>' => 'ne', '=' => 'eq', '>' => 'gt', '>=' => 'gte', '<' => 'lt', '<=' => 'lte', 'in' => 'in', 'not in' => 'nin', 'nin' => 'nin', 'mod' => 'mod', 'exists' => 'exists', 'null' => 'null', 'notnull' => 'not null', 'not null' => 'not null', 'regex' => 'regex', 'type' => 'type', 'all' => 'all', '> time' => '> time', '< time' => '< time', 'between' => 'between', 'not between' => 'not between', 'between time' => 'between time', 'not between time' => 'not between time', 'notbetween time' => 'not between time', 'like' => 'like', 'near' => 'near', 'size' => 'size' , 'elemMatch' => 'elemMatch' ];
 
+~~~
 
 
 

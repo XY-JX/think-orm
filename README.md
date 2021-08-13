@@ -15,7 +15,7 @@ composer require topthink/think-orm
 
 此项目不在跟新，不在维护
 
-## 需要自己手动修改请参考本项目 ad31721 版本
+## 需要自己手动修改请参考本项目 [ad31721](https://github.com/XY-JX/think-orm/commit/ad3172161349767e0d8229585b1a4a55c31821a4) 版本
 
 ~~~
 ad3172161349767e0d8229585b1a4a55c31821a4
